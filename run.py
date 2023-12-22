@@ -1,17 +1,16 @@
 import bpy
 import mathutils
-from lbsm import Exporter
+from vertex import Vertex
 import pathlib
 
 HERE = pathlib.Path(__file__).absolute().parent
 
 
 if __name__ == "__main__":
-    exporter = Exporter(mathutils.Matrix(), False)
 
     for ob in bpy.context.scene.objects:
-        exporter.push_object(ob)
+        if isinstance(ob.data, bpy.types.Mesh):
+            vertices = Vertex.from_object(ob, mathutils.Matrix())
+            print(vertices)
 
     dst = HERE / "tmp.lbsm"
-    exporter.write(dst)
-
