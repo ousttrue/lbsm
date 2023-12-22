@@ -1,7 +1,7 @@
 import ctypes
 import bpy
 import mathutils
-from typing import Optional
+from typing import Optional, Tuple
 
 
 class Float2(ctypes.Structure):
@@ -46,14 +46,20 @@ class Vertex(ctypes.Structure):
     @staticmethod
     def from_mesh(
         mesh: bpy.types.Mesh, mat: mathutils.Matrix
-    ) -> ctypes.Array["Vertex"]:
-        # triangles
+    ) -> Tuple[memoryview, memoryview]:
         mesh.transform(mat)
         if mat.is_negative:
             mesh.flip_normals()
         mesh.calc_loop_triangles()
 
         vertices = (Vertex * len(mesh.loops))()
+        indexCount = len(mesh.loop_triangles) * 3
+        if len(vertices) > 65535:
+            indices = (ctypes.c_uint * indexCount)()
+        else:
+            indices = (ctypes.c_ushort * indexCount)()
+
+        i = 0
         uv_layer = mesh.uv_layers and mesh.uv_layers[0]
         for tri in mesh.loop_triangles:
             for loop_index in tri.loops:
@@ -66,13 +72,15 @@ class Vertex(ctypes.Structure):
                     dst.normal = Float3.from_vector(v.normal)
                 if isinstance(uv_layer, bpy.types.MeshUVLoopLayer):
                     dst.uv = Float2.from_vector(uv_layer.data[loop_index].uv)
+                indices[i] = loop_index
+                i += 1
 
-        return vertices
+        return (memoryview(vertices), memoryview(indices))
 
     @staticmethod
     def from_object(
         ob: bpy.types.Object, matrix: mathutils.Matrix, *, use_mesh_modifiers=False
-    ):
+    ) -> Optional[Tuple[memoryview, memoryview]]:
         if ob.mode == "EDIT":
             ob.update_from_editmode()
 
@@ -96,4 +104,3 @@ class Vertex(ctypes.Structure):
             return
         finally:
             mesh_owner.to_mesh_clear()
-
