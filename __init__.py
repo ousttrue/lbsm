@@ -1,4 +1,5 @@
 import bpy
+import mathutils
 from bpy.props import (
     StringProperty,
     BoolProperty,
@@ -18,6 +19,9 @@ from bpy.types import (
     OperatorFileListElement,
 )
 
+import pathlib
+from typing import Iterable
+
 
 bl_info = {
     "name": "LinearBlendSkinningModel Exporter",
@@ -29,56 +33,7 @@ bl_info = {
 }
 
 
-def faces_from_mesh(ob, global_matrix, use_mesh_modifiers=False):
-    """
-    From an object, return a generator over a list of faces.
-
-    Each faces is a list of his vertices. Each vertex is a tuple of
-    his coordinate.
-
-    use_mesh_modifiers
-        Apply the preview modifier to the returned liste
-
-    triangulate
-        Split the quad into two triangles
-    """
-
-    # get the editmode data
-    if ob.mode == "EDIT":
-        ob.update_from_editmode()
-
-    # get the modifiers
-    if use_mesh_modifiers:
-        depsgraph = bpy.context.evaluated_depsgraph_get()
-        mesh_owner = ob.evaluated_get(depsgraph)
-    else:
-        mesh_owner = ob
-
-    # Object.to_mesh() is not guaranteed to return a mesh.
-    try:
-        mesh = mesh_owner.to_mesh()
-    except RuntimeError:
-        return
-
-    if mesh is None:
-        return
-
-    mat = global_matrix @ ob.matrix_world
-    mesh.transform(mat)
-    if mat.is_negative:
-        mesh.flip_normals()
-    mesh.calc_loop_triangles()
-
-    vertices = mesh.vertices
-
-    for tri in mesh.loop_triangles:
-        yield [vertices[index].co.copy() for index in tri.vertices]
-
-    mesh_owner.to_mesh_clear()
-
-
-def write_lbsm(filepath="", faces=(), ascii=False):
-    print([f for f in faces])
+from . import lbsm
 
 
 @orientation_helper(axis_forward="Y", axis_up="Z")
@@ -148,12 +103,11 @@ class ExportLBSM(Operator, ExportHelper):
             to_up=self.axis_up,
         ).to_4x4() @ Matrix.Scale(global_scale, 4)
 
-        faces = itertools.chain.from_iterable(
-            faces_from_mesh(ob, global_matrix, self.use_mesh_modifiers)
-            for ob in data_seq
-        )
+        lbsm = lbsm.Exporter(global_matrix, self.use_mesh_modifiers)
+        for ob in data_seq:
+            lbsm.push_object(ob)
 
-        write_lbsm(faces=faces, **keywords)
+        lbsm.write(pathlib.Path(keywords["filepath"]))
 
         return {"FINISHED"}
 
