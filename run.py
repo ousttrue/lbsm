@@ -22,7 +22,7 @@ class Bin:
         byteLength = len(data.tobytes())
         bufferView = {
             "name": name,
-            "offset": self.offset,
+            "byteOffset": self.offset,
             "byteLength": byteLength,
         }
         self.bufferViews.append(bufferView)

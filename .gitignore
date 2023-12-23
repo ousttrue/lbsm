@@ -1,5 +1,7 @@
 __pycache__
 *.pyc
 /typings/
-/tmp.lbsm
+
+tmp.lbsm
+tmp.bytes
 
