@@ -1,11 +1,13 @@
 import bpy
-from typing import List, Tuple
+import struct
+from typing import List, Tuple, NamedTuple
 import mathutils
 import ctypes
 from vertex import Vertex
 import pathlib
 import io
 import json
+
 
 HERE = pathlib.Path(__file__).absolute().parent
 
@@ -27,6 +29,43 @@ class Bin:
         self.stream.write(data)
         self.offset += byteLength
         return bufferView
+
+
+class Chunk(NamedTuple):
+    chunkType: bytes
+    data: bytes
+
+
+def write_chunks(dst: pathlib.Path, *chunks: Chunk):
+    # header size
+    #
+    # magic: char[4]
+    # version: uint
+    # byteLength: uint
+    byteLength = 12
+    for chunk in chunks:
+        byteLength += 8 + len(chunk.data)
+
+    with dst.open("wb") as w:
+        # little endian binary format
+        # magic
+        w.write(b"LBSM")
+        # version
+        w.write(struct.pack("I", 1))
+        # fileTotalLength
+        w.write(struct.pack("I", byteLength))
+
+        for chunk in chunks:
+            # chunkDataLength
+            w.write(struct.pack("I", len(chunk.data)))
+            # chunkType
+            if len(chunk.chunkType) != 4:
+                raise Exception("must 4")
+            w.write(chunk.chunkType)
+            # chunkData
+            w.write(chunk.data)
+
+        return byteLength
 
 
 def export(dst: pathlib.Path, meshes: List[Tuple[memoryview, memoryview]]):
@@ -53,13 +92,21 @@ def export(dst: pathlib.Path, meshes: List[Tuple[memoryview, memoryview]]):
             }
         )
 
-    # glb like format
     print(json.dumps(json_data, indent=2))
-    json_chunk = json.dumps(json_data)
+    json_chunk = json.dumps(json_data).encode("utf-8")
+
+    # glb like format
+    calcSize = write_chunks(
+        dst,
+        Chunk(b"JSON", json_chunk),
+        Chunk(b"BIN\0", bin.stream.getvalue()),
+    )
+
+    result = dst.read_bytes()
+    assert (len(result) == calcSize, "write size")
 
 
 if __name__ == "__main__":
-
     meshes = []
     for ob in bpy.context.scene.objects:
         if isinstance(ob.data, bpy.types.Mesh):
