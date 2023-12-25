@@ -66,10 +66,10 @@ class Vertex(ctypes.Structure):
                 dst = vertices[loop_index]
                 v = mesh.vertices[mesh.loops[loop_index].vertex_index]
                 dst.position = Float3.from_vector(v.co)
-                if tri.normal:
-                    dst.normal = Float3.from_vector(tri.normal)
-                else:
+                if tri.use_smooth:
                     dst.normal = Float3.from_vector(v.normal)
+                else:
+                    dst.normal = Float3.from_vector(tri.normal)
                 if isinstance(uv_layer, bpy.types.MeshUVLoopLayer):
                     dst.uv = Float2.from_vector(uv_layer.data[loop_index].uv)
                 indices[i] = loop_index

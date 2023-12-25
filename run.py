@@ -7,6 +7,7 @@ from vertex import Vertex
 import pathlib
 import io
 import json
+import os
 
 
 HERE = pathlib.Path(__file__).absolute().parent
@@ -106,12 +107,34 @@ def export(dst: pathlib.Path, meshes: List[Tuple[memoryview, memoryview]]):
     assert (len(result) == calcSize, "write size")
 
 
-if __name__ == "__main__":
+def export_objects(objects: List[bpy.types.Object]):
     meshes = []
-    for ob in bpy.context.scene.objects:
+    for ob in objects:
         if isinstance(ob.data, bpy.types.Mesh):
             mesh = Vertex.from_object(ob, mathutils.Matrix())
             meshes.append(mesh)
 
     dst = HERE / "tmp.lbsm"
     export(dst, meshes)
+
+
+def export_glb(path: pathlib.Path):
+    # clear scene
+    bpy.ops.object.select_all(action="SELECT")
+    bpy.ops.object.delete(use_global=False)
+
+    # load glb
+    print(path, path.exists())
+    bpy.ops.import_scene.gltf(filepath=str(path))
+
+    export_objects(bpy.context.scene.objects)
+
+
+if __name__ == "__main__":
+    # export_objects(bpy.context.scene.objects)
+
+    glb = (
+        pathlib.Path(os.environ["GLTF_SAMPLE_MODELS"])
+        / "2.0/CesiumMan/glTF-Binary/CesiumMan.glb"
+    )
+    export_glb(glb)

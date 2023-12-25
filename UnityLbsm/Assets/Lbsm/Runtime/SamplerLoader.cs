@@ -12,7 +12,21 @@ public class SampleLoader : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        if (Lbsm.Lbsm.TryParse(_asset.bytes, out var json, out var bin))
+        Byte[] data = default;
+        if (_asset != null)
+        {
+            data = _asset.bytes;
+        }
+        else
+        {
+            data = System.IO.File.ReadAllBytes("../tmp.lbsm");
+        }
+        load(gameObject, data);
+    }
+
+    static void load(GameObject go, byte[] data)
+    {
+        if (Lbsm.Lbsm.TryParse(data, out var json, out var bin))
         {
             Debug.Log(json);
             var lbsm = JsonUtility.FromJson<Lbsm.Lbsm>(json);
@@ -43,9 +57,9 @@ public class SampleLoader : MonoBehaviour
                 indexCount = indexCount,
             });
 
-            var filter = gameObject.AddComponent<MeshFilter>();
+            var filter = go.AddComponent<MeshFilter>();
             filter.sharedMesh = mesh;
-            var renderer = gameObject.AddComponent<MeshRenderer>();
+            var renderer = go.AddComponent<MeshRenderer>();
             renderer.sharedMaterial = new Material(Shader.Find("Standard"));
         }
     }
