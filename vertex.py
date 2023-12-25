@@ -2,6 +2,7 @@ import ctypes
 import bpy
 import mathutils
 from typing import Optional, Tuple, List, NamedTuple
+import jsontype
 
 
 class Float2(ctypes.Structure):
@@ -33,21 +34,35 @@ class Float3(ctypes.Structure):
         return Float3(v.x, v.y, v.z)
 
 
-class Vertex(ctypes.Structure):
+class Float4(ctypes.Structure):
+    _fields_ = [
+        ("x", ctypes.c_float),
+        ("y", ctypes.c_float),
+        ("z", ctypes.c_float),
+        ("w", ctypes.c_float),
+    ]
+
+
+class VertexGeometry(ctypes.Structure):
     _fields_ = [
         ("position", Float3),
         ("normal", Float3),
-        ("uv", Float2),
+        ("tangent", Float4),
     ]
 
-    def __str__(self) -> str:
-        return f"[pos: {self.position}, nom: {self.normal}, uv: {self.uv}]"
 
-
-class Skin(ctypes.Structure):
+class VertexColorTex(ctypes.Structure):
     _fields_ = [
-        ("joints", (ctypes.c_float * 4)),
+        ("color", Float4),
+        ("tex0", Float2),
+        ("tex1", Float2),
+    ]
+
+
+class VertexSkin(ctypes.Structure):
+    _fields_ = [
         ("weights", (ctypes.c_float * 4)),
+        ("joints", (ctypes.c_ushort * 4)),
     ]
 
 
@@ -57,19 +72,21 @@ def get_armature(ob: bpy.types.Object):
             return m.object.data
 
 
-class Joint(NamedTuple):
-    name: str
-    position: Tuple[float, float, float]
-
-
 class Skinning(NamedTuple):
-    joints: List[Joint]
+    joints: List[jsontype.Joint]
     skinning: memoryview
 
 
-class VertexBuffer(NamedTuple):
+class Indices(NamedTuple):
+    stride: int  # 2 or 4
     indices: memoryview
-    vertices: memoryview
+
+
+class VertexBuffer(NamedTuple):
+    indices: Indices
+    vertex_count: int
+    geometry: memoryview
+    colortex: memoryview
     skinning: Optional[Skinning]
 
 
@@ -84,51 +101,70 @@ def from_mesh(
         mesh.flip_normals()
     mesh.calc_loop_triangles()
 
-    vertices = (Vertex * len(mesh.loops))()
+    geometry = (VertexGeometry * len(mesh.loops))()
+    colortex = (VertexColorTex * len(mesh.loops))()
     indexCount = len(mesh.loop_triangles) * 3
-    if len(vertices) > 65535:
+    if len(geometry) > 65535:
+        index_stride = 4
         indices = (ctypes.c_uint * indexCount)()
     else:
+        index_stride = 2
         indices = (ctypes.c_ushort * indexCount)()
 
     i = 0
     uv_layer = mesh.uv_layers and mesh.uv_layers[0]
 
+    skinWeights = None
+    jointNames = []
     if armature:
-        skinWeights = (Skin * len(mesh.loops))()
+        skinWeights = (VertexSkin * len(mesh.loops))()
         jointNames = [g.name for g in vertex_groups]
 
     for tri in mesh.loop_triangles:
         for loop_index in tri.loops:
-            dst = vertices[loop_index]
+            dst_geom = geometry[loop_index]
+            dst_tex = colortex[loop_index]
             v = mesh.vertices[mesh.loops[loop_index].vertex_index]
-            dst.position = Float3.from_vector(v.co)
+
+            # geom
+            dst_geom.position = Float3.from_vector(v.co)
             if tri.use_smooth:
-                dst.normal = Float3.from_vector(v.normal)
+                dst_geom.normal = Float3.from_vector(v.normal)
             else:
-                dst.normal = Float3.from_vector(tri.normal)
+                dst_geom.normal = Float3.from_vector(tri.normal)
+
+            # color tex
             if isinstance(uv_layer, bpy.types.MeshUVLoopLayer):
-                dst.uv = Float2.from_vector(uv_layer.data[loop_index].uv)
-            indices[i] = loop_index
-            i += 1
+                dst_tex.tex0 = Float2.from_vector(uv_layer.data[loop_index].uv)
 
-            if armature:
-                dst = skinWeights[loop_index]
+            # skin
+            if skinWeights:
+                dst_skin = skinWeights[loop_index]
 
-                def set_joint_weight(i, vg):
-                    dst.joints[i] = vg.group
-                    dst.weights[i] = vg.weight
+                def set_joint_weight(index: int, vg: bpy.types.VertexGroupElement):
+                    dst_skin.joints[index] = vg.group
+                    dst_skin.weights[index] = vg.weight
 
                 for j, vg in enumerate(v.groups[:4]):
                     set_joint_weight(j, vg)
 
+            indices[i] = loop_index
+            i += 1
+
     skinning = None
-    if armature:
+    if skinWeights:
         skinning = Skinning(
-            [Joint(name, (0, 0, 0)) for name in jointNames], memoryview(skinWeights)
+            [jsontype.Joint(name=name, position=(0, 0, 0)) for name in jointNames],
+            memoryview(skinWeights),
         )
 
-    return VertexBuffer(memoryview(indices), memoryview(vertices), skinning)
+    return VertexBuffer(
+        Indices(index_stride, memoryview(indices)),
+        len(mesh.loops),
+        memoryview(geometry),
+        memoryview(colortex),
+        skinning,
+    )
 
 
 def from_object(
@@ -136,7 +172,7 @@ def from_object(
     matrix: mathutils.Matrix,
     *,
     use_mesh_modifiers=False,
-) -> VertexBuffer:
+) -> Optional[VertexBuffer]:
     if ob.mode == "EDIT":
         ob.update_from_editmode()
 

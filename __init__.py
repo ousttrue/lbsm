@@ -33,7 +33,7 @@ bl_info = {
 }
 
 
-from . import lbsm
+from . import jsontype
 
 
 @orientation_helper(axis_forward="Y", axis_up="Z")

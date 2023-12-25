@@ -1,11 +1,13 @@
 using System;
+using System.IO;
 using System.Text;
+using UnityEngine;
 
 namespace Lbsm
 {
 
     [System.Serializable]
-    public class Asset
+    public class LbsmAsset
     {
         public string version;
         public override string ToString()
@@ -15,7 +17,7 @@ namespace Lbsm
     }
 
     [System.Serializable]
-    public class BufferView
+    public class LbsmBufferView
     {
         public string name;
         public int byteOffset;
@@ -27,19 +29,50 @@ namespace Lbsm
     }
 
     [System.Serializable]
-    public class Mesh
+    public class LbsmAttribute
+    {
+        public string vertexAttribute;
+        public string format;
+        public int dimension;
+    }
+
+    [System.Serializable]
+    public class LbsmStream
+    {
+        public string bufferView;
+        public LbsmAttribute[] attributes;
+    }
+
+    [System.Serializable]
+    public class LbsmJoint
     {
         public string name;
-        public string vertices;
-        public string indices;
+        public float[] position;
+    }
+
+    [System.Serializable]
+    public class LbsmIndices
+    {
+        public int stride;
+        public string bufferView;
+    }
+
+    [System.Serializable]
+    public class LbsmMesh
+    {
+        public string name;
+        public int vertexCount;
+        public LbsmStream[] vertexStreams;
+        public LbsmIndices indices;
+        public LbsmJoint[] joints;
         public override string ToString()
         {
-            return $"{{name: {name}, vertices: {vertices}, indices: {indices}}}";
+            return $"{{name: {name}, vertexStreams: {vertexStreams}, indices: {indices}, joints: {joints}}}";
         }
     }
 
     [System.Serializable]
-    public class Lbsm
+    public class LbsmRoot
     {
         public static readonly byte[] MAGIC = new ASCIIEncoding().GetBytes("LBSM");
         public static string ParseChunkType(Span<byte> bytes)
@@ -55,9 +88,9 @@ namespace Lbsm
             return new ASCIIEncoding().GetString(bytes.Slice(0, end));
         }
 
-        public Asset asset;
-        public BufferView[] bufferViews;
-        public Mesh[] meshes;
+        public LbsmAsset asset;
+        public LbsmBufferView[] bufferViews;
+        public LbsmMesh[] meshes;
 
         public override string ToString()
         {
