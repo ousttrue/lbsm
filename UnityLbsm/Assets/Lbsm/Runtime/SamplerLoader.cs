@@ -51,9 +51,21 @@ public class SampleLoader : MonoBehaviour
                     var bones = new Transform[src.joints.Length];
                     for (int i = 0; i < src.joints.Length; ++i)
                     {
-                        bones[i] = new GameObject(src.joints[i].name).transform;
-                        bones[i].SetParent(go.transform);
-                        bindposes[i] = Matrix4x4.identity;
+                        var bone = new GameObject(src.joints[i].name).transform;
+                        bones[i] = bone;
+                        bone.SetParent(go.transform);
+                        var position = src.joints[i].position;
+                        bone.localPosition = new Vector3(
+                            position[0],
+                            position[1],
+                            position[2]
+                        );
+                        bindposes[i] = new Matrix4x4(
+                            new Vector4(1, 0, 0, 0),
+                            new Vector4(0, 1, 0, 0),
+                            new Vector4(0, 0, 1, 0),
+                            new Vector4(-position[0], -position[1], -position[2], 1)
+                        );
                     }
                     mesh.bindposes = bindposes;
 

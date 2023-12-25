@@ -33,10 +33,11 @@ bl_info = {
 }
 
 
-from . import jsontype
+from . import serializer
+from . import vertex
 
 
-@orientation_helper(axis_forward="Y", axis_up="Z")
+@orientation_helper(axis_forward="Z", axis_up="Y")
 class ExportLBSM(Operator, ExportHelper):
     bl_idname = "export_mesh.lbsm"
     bl_label = "Export lbsm"
@@ -103,11 +104,8 @@ class ExportLBSM(Operator, ExportHelper):
             to_up=self.axis_up,
         ).to_4x4() @ Matrix.Scale(global_scale, 4)
 
-        lbsm = lbsm.Exporter(global_matrix, self.use_mesh_modifiers)
-        for ob in data_seq:
-            lbsm.push_object(ob)
-
-        lbsm.write(pathlib.Path(keywords["filepath"]))
+        meshes = vertex.export_objects(data_seq, global_matrix)
+        serializer.serialize(pathlib.Path(keywords["filepath"]), meshes)
 
         return {"FINISHED"}
 

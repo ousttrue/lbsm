@@ -1,8 +1,13 @@
 import ctypes
+import pathlib
+from typing import Optional, Tuple, List, NamedTuple, Dict
 import bpy
 import mathutils
-from typing import Optional, Tuple, List, NamedTuple
-import jsontype
+from . import jsontype
+
+
+def to_tuple(v: mathutils.Vector):
+    return (v.x, v.y, v.z)
 
 
 class Float2(ctypes.Structure):
@@ -90,12 +95,17 @@ class VertexBuffer(NamedTuple):
     skinning: Optional[Skinning]
 
 
+class Bone(NamedTuple):
+    name: str
+    position: Tuple[float, float, float]
+
+
 def from_mesh(
+    matrix: mathutils.Matrix,
+    ob: bpy.types.Object,
     mesh: bpy.types.Mesh,
-    mat: mathutils.Matrix,
-    vertex_groups: List[bpy.types.VertexGroup],
-    armature: Optional[bpy.types.Armature] = None,
 ) -> VertexBuffer:
+    mat = matrix @ ob.matrix_world
     mesh.transform(mat)
     if mat.is_negative:
         mesh.flip_normals()
@@ -115,10 +125,10 @@ def from_mesh(
     uv_layer = mesh.uv_layers and mesh.uv_layers[0]
 
     skinWeights = None
-    jointNames = []
+    armature = get_armature(ob)
     if armature:
         skinWeights = (VertexSkin * len(mesh.loops))()
-        jointNames = [g.name for g in vertex_groups]
+        jointNames = [g.name for g in ob.vertex_groups]
 
     for tri in mesh.loop_triangles:
         for loop_index in tri.loops:
@@ -153,8 +163,17 @@ def from_mesh(
 
     skinning = None
     if skinWeights:
+
+        def create_joint(name: str):
+            bone = armature.bones[name]
+            position = bone and to_tuple(bone.head_local) or (0, 0, 0)
+            return jsontype.Joint(name=name, position=position)
+            # for b in armature.bones:
+            #     bones[b.name] = Bone(b.name, b.head_local)
+            # print(bones)
+
         skinning = Skinning(
-            [jsontype.Joint(name=name, position=(0, 0, 0)) for name in jointNames],
+            [create_joint(name) for name in jointNames],
             memoryview(skinWeights),
         )
 
@@ -189,10 +208,32 @@ def from_object(
         if not isinstance(mesh, bpy.types.Mesh):
             return
 
-        mat = matrix @ ob.matrix_world
-        return from_mesh(mesh, mat, ob.vertex_groups, get_armature(ob))
+        return from_mesh(matrix, ob, mesh)
 
     except RuntimeError:
         raise
     finally:
         mesh_owner.to_mesh_clear()
+
+
+def export_objects(
+    objects: List[bpy.types.Object], matrix: mathutils.Matrix
+) -> List[VertexBuffer]:
+    meshes = []
+    for ob in objects:
+        if isinstance(ob.data, bpy.types.Mesh):
+            mesh = from_object(ob, matrix)
+            meshes.append(mesh)
+    return meshes
+
+
+def export_glb(path: pathlib.Path, matrix: mathutils.Matrix) -> List[VertexBuffer]:
+    # clear scene
+    bpy.ops.object.select_all(action="SELECT")
+    bpy.ops.object.delete(use_global=False)
+
+    # load glb
+    print(path, path.exists())
+    bpy.ops.import_scene.gltf(filepath=str(path))
+
+    return export_objects(bpy.context.scene.objects, matrix)
