@@ -48,6 +48,11 @@ namespace Lbsm
     {
         public string name;
         public float[] position;
+
+        public override string ToString()
+        {
+            return $"{name}({position[0]}, {position[1]}, {position[2]})";
+        }
     }
 
     [System.Serializable]

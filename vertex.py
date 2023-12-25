@@ -71,10 +71,10 @@ class VertexSkin(ctypes.Structure):
     ]
 
 
-def get_armature(ob: bpy.types.Object):
+def get_armature(ob: bpy.types.Object)->Optional[bpy.types.Object]:
     for m in ob.modifiers:
         if m.type == "ARMATURE":
-            return m.object.data
+            return m.object
 
 
 class Skinning(NamedTuple):
@@ -125,8 +125,10 @@ def from_mesh(
     uv_layer = mesh.uv_layers and mesh.uv_layers[0]
 
     skinWeights = None
-    armature = get_armature(ob)
-    if armature:
+    armatureOb = get_armature(ob)
+    armature = None
+    if armatureOb:
+        armature=armatureOb.data
         skinWeights = (VertexSkin * len(mesh.loops))()
         jointNames = [g.name for g in ob.vertex_groups]
 
@@ -164,13 +166,17 @@ def from_mesh(
     skinning = None
     if skinWeights:
 
+        mat = matrix @ armatureOb.matrix_world
         def create_joint(name: str):
+            position = (0,0,0)
             bone = armature.bones[name]
-            position = bone and to_tuple(bone.head_local) or (0, 0, 0)
+            if bone:
+                head_local = mat @ bone.head_local
+                position = to_tuple(head_local)
+
+            print(name, position)
+
             return jsontype.Joint(name=name, position=position)
-            # for b in armature.bones:
-            #     bones[b.name] = Bone(b.name, b.head_local)
-            # print(bones)
 
         skinning = Skinning(
             [create_joint(name) for name in jointNames],
