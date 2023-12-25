@@ -10,7 +10,7 @@ namespace Lbsm
         public string version;
         public override string ToString()
         {
-            return $"{{versin: {version}}}";
+            return $"{{version: {version}}}";
         }
     }
 

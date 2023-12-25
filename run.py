@@ -3,7 +3,7 @@ import struct
 from typing import List, Tuple, NamedTuple
 import mathutils
 import ctypes
-from vertex import Vertex
+import vertex
 import pathlib
 import io
 import json
@@ -11,6 +11,18 @@ import os
 
 
 HERE = pathlib.Path(__file__).absolute().parent
+
+
+class BoneBinding(NamedTuple):
+    name: str
+    weight: float
+
+
+class VertexBinding(NamedTuple):
+    b0: BoneBinding
+    b1: BoneBinding
+    b2: BoneBinding
+    b3: BoneBinding
 
 
 class Bin:
@@ -69,7 +81,7 @@ def write_chunks(dst: pathlib.Path, *chunks: Chunk):
         return byteLength
 
 
-def export(dst: pathlib.Path, meshes: List[Tuple[memoryview, memoryview]]):
+def export(dst: pathlib.Path, meshes: List[vertex.VertexBuffer]):
     print(dst, meshes)
 
     bin = Bin()
@@ -80,18 +92,20 @@ def export(dst: pathlib.Path, meshes: List[Tuple[memoryview, memoryview]]):
         "bufferViews": bin.bufferViews,
         "meshes": [],
     }
-    for i, (vertices, indices) in enumerate(meshes):
+    for i, vb in enumerate(meshes):
         name = f"mesh{i}"
-        bin.push(f"{name}.vert", vertices)
-
-        bin.push(f"{name}.indx", indices)
-        json_data["meshes"].append(
-            {
-                "name": name,
-                "vertices": f"{name}.vert",
-                "indices": f"{name}.indx",
-            }
-        )
+        bin.push(f"{name}.vert", vb.vertices)
+        bin.push(f"{name}.indx", vb.indices)
+        mesh = {
+            "name": name,
+            "vertices": f"{name}.vert",
+            "indices": f"{name}.indx",
+        }
+        if vb.skinning:
+            bin.push(f"{name}.skin", vb.skinning.skinning)
+            mesh["skinning"] = f"{name}.skin"
+            mesh["joints"] = [joint._asdict() for joint in vb.skinning.joints]
+        json_data["meshes"].append(mesh)
 
     print(json.dumps(json_data, indent=2))
     json_chunk = json.dumps(json_data).encode("utf-8")
@@ -111,7 +125,7 @@ def export_objects(objects: List[bpy.types.Object]):
     meshes = []
     for ob in objects:
         if isinstance(ob.data, bpy.types.Mesh):
-            mesh = Vertex.from_object(ob, mathutils.Matrix())
+            mesh = vertex.from_object(ob, mathutils.Matrix())
             meshes.append(mesh)
 
     dst = HERE / "tmp.lbsm"
