@@ -1,15 +1,9 @@
 using System;
-using System.Text;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.SceneManagement;
-using UnityEditor;
-using UnityEngine.Assertions.Must;
-using Unity.Collections;
-using Unity.VisualScripting;
-using Palmmedia.ReportGenerator.Core.Reporting.Builders;
 using System.Collections.Generic;
+
 
 public class SampleLoader : MonoBehaviour
 {
@@ -39,6 +33,27 @@ public class SampleLoader : MonoBehaviour
             var lbsm = JsonUtility.FromJson<Lbsm.LbsmRoot>(json);
             Debug.Log(lbsm);
 
+            var bones = new Transform[lbsm.joints.Length];
+            for (int i = 0; i < lbsm.joints.Length; ++i)
+            {
+                var bone = new GameObject(lbsm.joints[i].name).transform;
+                bones[i] = bone;
+                bone.SetParent(go.transform);
+                var position = lbsm.joints[i].head;
+                bone.localPosition = new Vector3(
+                    position[0],
+                    position[1],
+                    position[2]
+                );
+            }
+            for (int i = 0; i < lbsm.joints.Length; ++i)
+            {
+                if (lbsm.joints[i].parent != -1)
+                {
+                    bones[i].SetParent(bones[lbsm.joints[i].parent], true);
+                }
+            }
+
             foreach (var src in lbsm.meshes)
             {
                 var mesh = loadMesh(go, lbsm, bin, src);
@@ -48,23 +63,14 @@ public class SampleLoader : MonoBehaviour
                 if (src.joints?.Length > 0)
                 {
                     var bindposes = new Matrix4x4[src.joints.Length];
-                    var bones = new Transform[src.joints.Length];
                     for (int i = 0; i < src.joints.Length; ++i)
                     {
-                        var bone = new GameObject(src.joints[i].name).transform;
-                        bones[i] = bone;
-                        bone.SetParent(go.transform);
-                        var position = src.joints[i].position;
-                        bone.localPosition = new Vector3(
-                            position[0],
-                            position[1],
-                            position[2]
-                        );
+                        var joint = bones[src.joints[i]];
                         bindposes[i] = new Matrix4x4(
                             new Vector4(1, 0, 0, 0),
                             new Vector4(0, 1, 0, 0),
                             new Vector4(0, 0, 1, 0),
-                            new Vector4(-position[0], -position[1], -position[2], 1)
+                            new Vector4(-joint.position.x, -joint.position.y, -joint.position.z, 1)
                         );
                     }
                     mesh.bindposes = bindposes;

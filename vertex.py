@@ -3,7 +3,6 @@ import pathlib
 from typing import Optional, Tuple, List, NamedTuple, Dict
 import bpy
 import mathutils
-from . import jsontype
 
 
 def to_tuple(v: mathutils.Vector):
@@ -71,14 +70,21 @@ class VertexSkin(ctypes.Structure):
     ]
 
 
-def get_armature(ob: bpy.types.Object)->Optional[bpy.types.Object]:
+def get_armature(ob: bpy.types.Object) -> Optional[bpy.types.Object]:
     for m in ob.modifiers:
         if m.type == "ARMATURE":
             return m.object
 
 
+class Joint(NamedTuple):
+    name: str
+    position: Tuple[float, float, float]
+    is_connected: bool
+    parent: Optional[str]  # armature bone name is unique
+
+
 class Skinning(NamedTuple):
-    joints: List[jsontype.Joint]
+    joints: List[Joint]
     skinning: memoryview
 
 
@@ -93,11 +99,6 @@ class VertexBuffer(NamedTuple):
     geometry: memoryview
     colortex: memoryview
     skinning: Optional[Skinning]
-
-
-class Bone(NamedTuple):
-    name: str
-    position: Tuple[float, float, float]
 
 
 def from_mesh(
@@ -128,7 +129,7 @@ def from_mesh(
     armatureOb = get_armature(ob)
     armature = None
     if armatureOb:
-        armature=armatureOb.data
+        armature = armatureOb.data
         skinWeights = (VertexSkin * len(mesh.loops))()
         jointNames = [g.name for g in ob.vertex_groups]
 
@@ -165,18 +166,22 @@ def from_mesh(
 
     skinning = None
     if skinWeights:
-
         mat = matrix @ armatureOb.matrix_world
+
         def create_joint(name: str):
-            position = (0,0,0)
+            position = (0, 0, 0)
             bone = armature.bones[name]
             if bone:
                 head_local = mat @ bone.head_local
                 position = to_tuple(head_local)
 
-            print(name, position)
+            parent = None
+            if bone.parent:
+                parent = bone.parent.name
 
-            return jsontype.Joint(name=name, position=position)
+            return Joint(
+                name=name, position=position, is_connected=bone.use_connect, parent=parent
+            )
 
         skinning = Skinning(
             [create_joint(name) for name in jointNames],
@@ -239,7 +244,6 @@ def export_glb(path: pathlib.Path, matrix: mathutils.Matrix) -> List[VertexBuffe
     bpy.ops.object.delete(use_global=False)
 
     # load glb
-    print(path, path.exists())
     bpy.ops.import_scene.gltf(filepath=str(path))
 
     return export_objects(bpy.context.scene.objects, matrix)

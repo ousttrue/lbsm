@@ -1,6 +1,6 @@
-import bpy
 import pathlib
 import os
+import bpy
 import mathutils
 
 
@@ -27,6 +27,6 @@ if __name__ == "__main__":
     meshes = vertex.export_glb(glb, zup_to_yup)
 
     dst = HERE / "tmp.lbsm"
-    from lbsm import serializer
+    from lbsm import serialization
 
-    serializer.serialize(dst, meshes)
+    serialization.serialize(dst, meshes)

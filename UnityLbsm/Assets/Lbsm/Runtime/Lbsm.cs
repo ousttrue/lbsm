@@ -44,18 +44,6 @@ namespace Lbsm
     }
 
     [System.Serializable]
-    public class LbsmJoint
-    {
-        public string name;
-        public float[] position;
-
-        public override string ToString()
-        {
-            return $"{name}({position[0]}, {position[1]}, {position[2]})";
-        }
-    }
-
-    [System.Serializable]
     public class LbsmIndices
     {
         public int stride;
@@ -69,10 +57,24 @@ namespace Lbsm
         public int vertexCount;
         public LbsmStream[] vertexStreams;
         public LbsmIndices indices;
-        public LbsmJoint[] joints;
+        public int[] joints;
         public override string ToString()
         {
             return $"{{name: {name}, vertexStreams: {vertexStreams}, indices: {indices}, joints: {joints}}}";
+        }
+    }
+
+    [System.Serializable]
+    public class LbsmJoint
+    {
+        public string name;
+        public int parent;
+        public float[] head;
+        public float[] tail;
+        bool is_connected;
+        public override string ToString()
+        {
+            return $"{name}({head[0]}, {head[1]}, {head[2]})";
         }
     }
 
@@ -96,6 +98,7 @@ namespace Lbsm
         public LbsmAsset asset;
         public LbsmBufferView[] bufferViews;
         public LbsmMesh[] meshes;
+        public LbsmJoint[] joints;
 
         public override string ToString()
         {

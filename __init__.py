@@ -1,26 +1,19 @@
+import pathlib
 import bpy
 import mathutils
 from bpy.props import (
     StringProperty,
     BoolProperty,
-    CollectionProperty,
-    EnumProperty,
     FloatProperty,
-    FloatVectorProperty,
 )
 from bpy_extras.io_utils import (
-    ImportHelper,
     ExportHelper,
     orientation_helper,
     axis_conversion,
 )
 from bpy.types import (
     Operator,
-    OperatorFileListElement,
 )
-
-import pathlib
-from typing import Iterable
 
 
 bl_info = {
@@ -33,7 +26,7 @@ bl_info = {
 }
 
 
-from . import serializer
+from . import serialization
 from . import vertex
 
 
@@ -105,7 +98,7 @@ class ExportLBSM(Operator, ExportHelper):
         ).to_4x4() @ Matrix.Scale(global_scale, 4)
 
         meshes = vertex.export_objects(data_seq, global_matrix)
-        serializer.serialize(pathlib.Path(keywords["filepath"]), meshes)
+        serialization.serialize(pathlib.Path(keywords["filepath"]), meshes)
 
         return {"FINISHED"}
 
