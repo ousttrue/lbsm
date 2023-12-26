@@ -33,24 +33,24 @@ public class SampleLoader : MonoBehaviour
             var lbsm = JsonUtility.FromJson<Lbsm.LbsmRoot>(json);
             Debug.Log(lbsm);
 
-            var bones = new Transform[lbsm.joints.Length];
-            for (int i = 0; i < lbsm.joints.Length; ++i)
+            var bones = new Transform[lbsm.bones.Length];
+            for (int i = 0; i < lbsm.bones.Length; ++i)
             {
-                var bone = new GameObject(lbsm.joints[i].name).transform;
+                var bone = new GameObject(lbsm.bones[i].name).transform;
                 bones[i] = bone;
                 bone.SetParent(go.transform);
-                var position = lbsm.joints[i].head;
+                var position = lbsm.bones[i].head;
                 bone.localPosition = new Vector3(
                     position[0],
                     position[1],
                     position[2]
                 );
             }
-            for (int i = 0; i < lbsm.joints.Length; ++i)
+            for (int i = 0; i < lbsm.bones.Length; ++i)
             {
-                if (lbsm.joints[i].parent != -1)
+                if (lbsm.bones[i].parent != -1)
                 {
-                    bones[i].SetParent(bones[lbsm.joints[i].parent], true);
+                    bones[i].SetParent(bones[lbsm.bones[i].parent], true);
                 }
             }
 
