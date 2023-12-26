@@ -65,7 +65,7 @@ namespace Lbsm
     }
 
     [System.Serializable]
-    public class LbsmJoint
+    public class LbsmBone
     {
         public string name;
         public int parent;
@@ -98,7 +98,7 @@ namespace Lbsm
         public LbsmAsset asset;
         public LbsmBufferView[] bufferViews;
         public LbsmMesh[] meshes;
-        public LbsmJoint[] joints;
+        public LbsmBone[] bones;
 
         public override string ToString()
         {

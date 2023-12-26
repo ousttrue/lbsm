@@ -45,7 +45,7 @@ class Mesh(TypedDict):
     joints: List[int]
 
 
-class Joint(TypedDict):
+class Bone(TypedDict):
     name: str
     parent: Optional[int]
     head: Tuple[float, float, float]
@@ -57,7 +57,7 @@ class Root(TypedDict):
     asset: Asset
     bufferViews: List[BufferView]
     meshes: List[Mesh]
-    joints: List[Joint]  # rig
+    bones: List[Bone]  # rig
 
 
 class Bin:
@@ -118,7 +118,7 @@ def write_chunks(dst: pathlib.Path, *chunks: Chunk):
 
 class Serializer:
     def __init__(self):
-        self.joints: List[Joint] = []
+        self.bones: List[Bone] = []
         self.joint_map: Dict[vertex.Joint, int] = {}
 
     def get_or_create_joint(
@@ -131,9 +131,9 @@ class Serializer:
         if joint.parent:
             parent = self.get_or_create_joint(joints, joints[joint.parent])
 
-        index = len(self.joints)
-        self.joints.append(
-            Joint(
+        index = len(self.bones)
+        self.bones.append(
+            Bone(
                 name=joint.name,
                 parent=parent,
                 head=joint.position,
@@ -153,7 +153,7 @@ class Serializer:
             asset=Asset(version="alpha"),
             bufferViews=bin.bufferViews,
             meshes=[],
-            joints=self.joints,
+            bones=self.bones,
         )
         for i, vb in enumerate(meshes):
             name = f"mesh{i}"
