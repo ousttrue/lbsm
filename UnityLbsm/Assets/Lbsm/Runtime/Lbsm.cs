@@ -5,11 +5,36 @@ using UnityEngine;
 
 namespace Lbsm
 {
+    [System.Serializable]
+    public class LbsmAxes : IEquatable<LbsmAxes>
+    {
+        // string enum
+        // "left/right", "up/down", "forward/back";
+        public string x = "right";
+        public string y = "up";
+        public string z = "forward";
+
+        public bool Equals(LbsmAxes other)
+        {
+            return x == other.x && y == other.y && z == other.z;
+        }
+
+        public override int GetHashCode()
+        {
+            return this.ToString().GetHashCode();
+        }
+
+        public override string ToString()
+        {
+            return $"{{{x}-{y}-{z}}}";
+        }
+    }
 
     [System.Serializable]
     public class LbsmAsset
     {
         public string version;
+        public LbsmAxes axes;
         public override string ToString()
         {
             return $"{{version: {version}}}";
@@ -51,12 +76,20 @@ namespace Lbsm
     }
 
     [System.Serializable]
+    public class LbsmSubMesh
+    {
+        public int material;
+        public int drawCount;
+    }
+
+    [System.Serializable]
     public class LbsmMesh
     {
         public string name;
         public int vertexCount;
         public LbsmStream[] vertexStreams;
         public LbsmIndices indices;
+        public LbsmSubMesh[] subMeshes;
         public int[] joints;
         public override string ToString()
         {
@@ -79,6 +112,20 @@ namespace Lbsm
     }
 
     [System.Serializable]
+    public class LbsmTexture
+    {
+        public string bufferView;
+    }
+
+    [System.Serializable]
+    public class LbsmMaterial
+    {
+        public string name;
+        public float[] color;
+        public int colorTexture;
+    }
+
+    [System.Serializable]
     public class LbsmRoot
     {
         public static readonly byte[] MAGIC = new ASCIIEncoding().GetBytes("LBSM");
@@ -97,6 +144,8 @@ namespace Lbsm
 
         public LbsmAsset asset;
         public LbsmBufferView[] bufferViews;
+        public LbsmTexture[] textures;
+        public LbsmMaterial[] materials;
         public LbsmMesh[] meshes;
         public LbsmBone[] bones;
 

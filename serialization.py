@@ -11,8 +11,15 @@ from . import vertex
 from typing import TypedDict, List, Optional, Tuple
 
 
+class Axes(TypedDict):
+    x: str
+    y: str
+    z: str
+
+
 class Asset(TypedDict):
     version: str
+    axes: Axes
 
 
 class BufferView(TypedDict):
@@ -150,7 +157,14 @@ class Serializer:
 
         bin = Bin()
         json_data = Root(
-            asset=Asset(version="alpha"),
+            asset=Asset(
+                version="alpha",
+                axes=Axes(
+                    x="right",
+                    y="up",
+                    z="back",
+                ),
+            ),
             bufferViews=bin.bufferViews,
             meshes=[],
             bones=self.bones,
