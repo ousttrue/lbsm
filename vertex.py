@@ -92,6 +92,9 @@ class Indices(NamedTuple):
     stride: int  # 2 or 4
     indices: memoryview
 
+    def get_draw_count(self) -> int:
+        return len(self.indices.tobytes()) // self.stride
+
 
 class VertexBuffer(NamedTuple):
     indices: Indices
@@ -180,7 +183,10 @@ def from_mesh(
                 parent = bone.parent.name
 
             return Joint(
-                name=name, position=position, is_connected=bone.use_connect, parent=parent
+                name=name,
+                position=position,
+                is_connected=bone.use_connect,
+                parent=parent,
             )
 
         skinning = Skinning(

@@ -64,7 +64,7 @@ namespace Lbsm
     [System.Serializable]
     public class LbsmStream
     {
-        public string bufferView;
+        public int bufferView;
         public LbsmAttribute[] attributes;
     }
 
@@ -72,7 +72,7 @@ namespace Lbsm
     public class LbsmIndices
     {
         public int stride;
-        public string bufferView;
+        public int bufferView;
     }
 
     [System.Serializable]
@@ -114,7 +114,7 @@ namespace Lbsm
     [System.Serializable]
     public class LbsmTexture
     {
-        public string bufferView;
+        public int bufferView;
     }
 
     [System.Serializable]

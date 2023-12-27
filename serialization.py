@@ -1,10 +1,8 @@
-from typing import List, NamedTuple, Dict
+from typing import List, NamedTuple, Dict, Tuple
 import struct
 import pathlib
 import io
 import json
-import os
-import mathutils
 from . import vertex
 
 
@@ -35,13 +33,18 @@ class Attribute(TypedDict):
 
 
 class Stream(TypedDict):
-    bufferView: str
+    bufferView: int
     attributes: List[Attribute]
 
 
 class Indices(TypedDict):
     stride: int  # 2 | 4
-    bufferView: str
+    bufferView: int
+
+
+class SubMesh(TypedDict):
+    material: int
+    drawCount: int
 
 
 class Mesh(TypedDict):
@@ -49,6 +52,7 @@ class Mesh(TypedDict):
     vertexCount: int
     vertexStreams: List[Stream]
     indices: Indices
+    subMeshes: List[SubMesh]
     joints: List[int]
 
 
@@ -60,9 +64,21 @@ class Bone(TypedDict):
     is_connected: bool
 
 
+class Texture(TypedDict):
+    bufferView: int
+
+
+class Material(TypedDict):
+    name: str
+    color: Tuple[float, float, float, float]
+    colorTexture: int
+
+
 class Root(TypedDict):
     asset: Asset
     bufferViews: List[BufferView]
+    tetures: List[Texture]
+    materials: List[Material]
     meshes: List[Mesh]
     bones: List[Bone]  # rig
 
@@ -73,7 +89,8 @@ class Bin:
         self.bufferViews: List[BufferView] = []
         self.offset = 0
 
-    def push(self, name: str, data: memoryview):
+    def push(self, name: str, data: memoryview) -> int:
+        index = len(self.bufferViews)
         byteLength = len(data.tobytes())
         bufferView = BufferView(
             name=name,
@@ -83,7 +100,7 @@ class Bin:
         self.bufferViews.append(bufferView)
         self.stream.write(data)
         self.offset += byteLength
-        return bufferView
+        return index
 
 
 class Chunk(NamedTuple):
@@ -166,20 +183,22 @@ class Serializer:
                 ),
             ),
             bufferViews=bin.bufferViews,
+            textures=[],
+            materials=[Material(name="tmp", color=(1, 1, 1, 1), colorTexture=-1)],
             meshes=[],
             bones=self.bones,
         )
         for i, vb in enumerate(meshes):
             name = f"mesh{i}"
-            bin.push(f"{name}.vert", vb.geometry)
-            bin.push(f"{name}.tex", vb.colortex)
-            bin.push(f"{name}.indx", vb.indices.indices)
+            vert = bin.push(f"{name}.vert", vb.geometry)
+            tex = bin.push(f"{name}.tex", vb.colortex)
+            indx = bin.push(f"{name}.indx", vb.indices.indices)
             mesh = Mesh(
                 name=name,
                 vertexCount=vb.vertex_count,
                 vertexStreams=[
                     Stream(
-                        bufferView=f"{name}.vert",
+                        bufferView=vert,
                         attributes=[
                             Attribute(
                                 vertexAttribute="position", format="f32", dimension=3
@@ -193,7 +212,7 @@ class Serializer:
                         ],
                     ),
                     Stream(
-                        bufferView=f"{name}.tex",
+                        bufferView=tex,
                         attributes=[
                             Attribute(
                                 vertexAttribute="color", format="f32", dimension=4
@@ -209,17 +228,18 @@ class Serializer:
                 ],
                 indices=Indices(
                     stride=vb.indices.stride,
-                    bufferView=f"{name}.indx",
+                    bufferView=indx,
                 ),
+                subMeshes=[SubMesh(material=0, drawCount=vb.indices.get_draw_count())],
                 joints=[],
             )
 
             if vb.skinning:
                 joint_map = {joint.name: joint for joint in vb.skinning.joints}
-                bin.push(f"{name}.skin", vb.skinning.skinning)
+                skin = bin.push(f"{name}.skin", vb.skinning.skinning)
                 mesh["vertexStreams"].append(
                     Stream(
-                        bufferView=f"{name}.skin",
+                        bufferView=skin,
                         attributes=[
                             Attribute(
                                 vertexAttribute="blendWeights",

@@ -91,16 +91,21 @@ public class SampleLoader : MonoBehaviour
                 }
             }
 
-            var textures = lbsm.textures.Select(src =>
+            var textures = new Texture2D[] { };
+            if (lbsm.textures != null)
             {
-                var texture = new Texture2D(2, 2);
-                var buffer = lbsm.bufferViews.First(x => x.name == src.bufferView);
-                if (texture.LoadImage(bin.Slice(buffer.byteOffset, buffer.byteLength).ToArray()))
+                textures = lbsm.textures.Select(src =>
                 {
-                    return texture;
-                }
-                return null;
-            }).ToArray();
+                    var texture = new Texture2D(2, 2);
+                    var buffer = lbsm.bufferViews[src.bufferView];
+                    texture.name = buffer.name;
+                    if (texture.LoadImage(bin.Slice(buffer.byteOffset, buffer.byteLength).ToArray()))
+                    {
+                        return texture;
+                    }
+                    return null;
+                }).ToArray();
+            }
 
             var materials = lbsm.materials.Select(x =>
             {
@@ -221,13 +226,13 @@ public class SampleLoader : MonoBehaviour
         mesh.SetVertexBufferParams(src.vertexCount, layout.ToArray());
         for (int stream = 0; stream < src.vertexStreams.Length; ++stream)
         {
-            var buffer = lbsm.bufferViews.First(x => x.name == src.vertexStreams[stream].bufferView);
+            var buffer = lbsm.bufferViews[src.vertexStreams[stream].bufferView];
             mesh.SetVertexBufferData(bin.Array, bin.Offset + buffer.byteOffset, 0, buffer.byteLength, stream);
         }
 
         // index
         var materias = new Material[] { };
-        var ib = lbsm.bufferViews.First(x => x.name == src.indices.bufferView);
+        var ib = lbsm.bufferViews[src.indices.bufferView];
         var indexCount = ib.byteLength / src.indices.stride;
         mesh.SetIndexBufferParams(indexCount, src.indices.stride == 2 ? IndexFormat.UInt16 : IndexFormat.UInt32);
         mesh.SetIndexBufferData(bin.Array, bin.Offset + ib.byteOffset, 0, ib.byteLength);
