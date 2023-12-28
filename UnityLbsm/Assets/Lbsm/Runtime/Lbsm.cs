@@ -6,27 +6,66 @@ using UnityEngine;
 namespace Lbsm
 {
     [System.Serializable]
-    public class LbsmAxes : IEquatable<LbsmAxes>
+    public struct LbsmAxes
     {
-        // string enum
-        // "left/right", "up/down", "forward/back";
-        public string x = "right";
-        public string y = "up";
-        public string z = "forward";
+        public string x;
+        public string y;
+        public string z;
 
-        public bool Equals(LbsmAxes other)
+        public static readonly LbsmAxes Unity = new LbsmAxes
         {
-            return x == other.x && y == other.y && z == other.z;
-        }
+            x = "left",
+            y = "up",
+            z = "forward",
+        };
 
-        public override int GetHashCode()
+        public static readonly LbsmAxes Gltf = new LbsmAxes
         {
-            return this.ToString().GetHashCode();
-        }
+            x = "left",
+            y = "up",
+            z = "forward",
+        };
+
+        public static readonly LbsmAxes OpenGL = new LbsmAxes
+        {
+            x = "right",
+            y = "up",
+            z = "back",
+        };
 
         public override string ToString()
         {
-            return $"{{{x}-{y}-{z}}}";
+            return $"[{x}-{y}-{z}]";
+        }
+    }
+
+    [System.Serializable]
+    public struct LbsmCoordinates
+    {
+        public LbsmAxes axes;
+        public string uvOrigin;
+
+        public static readonly LbsmCoordinates Unity = new LbsmCoordinates
+        {
+            axes = LbsmAxes.Unity,
+            uvOrigin = "lowerLeft",
+        };
+
+        public static readonly LbsmCoordinates Gltf = new LbsmCoordinates
+        {
+            axes = LbsmAxes.Gltf,
+            uvOrigin = "upperLeft",
+        };
+
+        public static readonly LbsmCoordinates OpenGL = new LbsmCoordinates
+        {
+            axes = LbsmAxes.OpenGL,
+            uvOrigin = "lowerLeft",
+        };
+
+        public override string ToString()
+        {
+            return $"{{{axes}; {uvOrigin}}}";
         }
     }
 
@@ -34,7 +73,7 @@ namespace Lbsm
     public class LbsmAsset
     {
         public string version;
-        public LbsmAxes axes;
+        public LbsmCoordinates coordinates;
         public override string ToString()
         {
             return $"{{version: {version}}}";
@@ -83,6 +122,22 @@ namespace Lbsm
     }
 
     [System.Serializable]
+    public struct LbsmMorphTarget
+    {
+        public string name;
+        public int indexStride;
+        public int indexBufferView;
+        public int positionBufferView;
+        public LbsmMorphTarget(string name, int indexStride, int indexBufferView, int positionBufferView)
+        {
+            this.name = name;
+            this.indexStride = indexStride;
+            this.indexBufferView = indexBufferView;
+            this.positionBufferView = positionBufferView;
+        }
+    }
+
+    [System.Serializable]
     public class LbsmMesh
     {
         public string name;
@@ -91,6 +146,7 @@ namespace Lbsm
         public LbsmIndices indices;
         public LbsmSubMesh[] subMeshes;
         public int[] joints;
+        public LbsmMorphTarget[] morphTargets;
         public override string ToString()
         {
             return $"{{name: {name}, vertexStreams: {vertexStreams}, indices: {indices}, joints: {joints}}}";

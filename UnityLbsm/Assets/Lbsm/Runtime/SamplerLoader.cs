@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using Lbsm;
 using Unity.VisualScripting;
 using UnityEngine.Assertions.Must;
+using System.Runtime.InteropServices;
+
 
 
 public class SampleLoader : MonoBehaviour
@@ -25,27 +27,11 @@ public class SampleLoader : MonoBehaviour
         {
             data = System.IO.File.ReadAllBytes("../tmp.lbsm");
         }
+        var sw = new System.Diagnostics.Stopwatch();
+        sw.Start();
         load(gameObject, data);
+        Debug.Log($"{sw.Elapsed}");
     }
-
-    static readonly Lbsm.LbsmAxes UnityAxes = new Lbsm.LbsmAxes
-    {
-        x = "right",
-        y = "up",
-        z = "forward",
-    };
-    static readonly Lbsm.LbsmAxes GltfAxes = new Lbsm.LbsmAxes
-    {
-        x = "left",
-        y = "up",
-        z = "forward",
-    };
-    static readonly Lbsm.LbsmAxes OpenGLAxes = new Lbsm.LbsmAxes
-    {
-        x = "right",
-        y = "up",
-        z = "back",
-    };
 
     static void load(GameObject go, byte[] data)
     {
@@ -67,20 +53,20 @@ public class SampleLoader : MonoBehaviour
                     position[1],
                     position[2]
                 );
-                if (lbsm.asset.axes.Equals(UnityAxes))
+                if (lbsm.asset.coordinates.axes.Equals(LbsmAxes.Unity))
                 {
                 }
-                else if (lbsm.asset.axes.Equals(GltfAxes))
+                else if (lbsm.asset.coordinates.axes.Equals(LbsmAxes.Gltf))
                 {
                     bone.localPosition = bone.localPosition.ReverseX();
                 }
-                else if (lbsm.asset.axes.Equals(OpenGLAxes))
+                else if (lbsm.asset.coordinates.axes.Equals(LbsmAxes.OpenGL))
                 {
                     bone.localPosition = bone.localPosition.ReverseZ();
                 }
                 else
                 {
-                    throw new ArgumentException($"invalid axes: {lbsm.asset.axes}");
+                    throw new ArgumentException($"invalid axes: {lbsm.asset.coordinates}");
                 }
             }
             for (int i = 0; i < lbsm.bones.Length; ++i)
@@ -120,7 +106,7 @@ public class SampleLoader : MonoBehaviour
             foreach (var src in lbsm.meshes)
             {
                 var mesh = loadMesh(go, lbsm, bin, src);
-                var meshOb = new GameObject(src.name);
+                var meshOb = new GameObject($"mesh:{src.name}");
                 meshOb.transform.SetParent(go.transform);
 
                 if (src.joints?.Length > 0)
@@ -248,17 +234,19 @@ public class SampleLoader : MonoBehaviour
             offset += src.subMeshes[i].drawCount;
         }
 
-        if (lbsm.asset.axes.Equals(UnityAxes))
+        if (lbsm.asset.coordinates.Equals(LbsmCoordinates.Unity))
         {
         }
-        else if (lbsm.asset.axes.Equals(GltfAxes))
+        else if (lbsm.asset.coordinates.Equals(LbsmCoordinates.Gltf))
         {
             mesh.vertices = mesh.vertices.Select(x => x.ReverseX()).ToArray();
             mesh.normals = mesh.normals.Select(x => x.ReverseX()).ToArray();
+            // flip vertical
+            mesh.uv = mesh.uv.Select(x => new Vector2(x.x, 1.0f - x.y)).ToArray();
             // right handed
             mesh.triangles = FlipTriangles(mesh.triangles).ToArray();
         }
-        else if (lbsm.asset.axes.Equals(OpenGLAxes))
+        else if (lbsm.asset.coordinates.Equals(LbsmCoordinates.OpenGL))
         {
             mesh.vertices = mesh.vertices.Select(x => x.ReverseZ()).ToArray();
             mesh.normals = mesh.normals.Select(x => x.ReverseZ()).ToArray();
@@ -267,10 +255,51 @@ public class SampleLoader : MonoBehaviour
         }
         else
         {
-            throw new NotImplementedException($"invalid axes: {lbsm.asset.axes}");
+            throw new NotImplementedException($"invalid axes: {lbsm.asset.coordinates}");
         }
 
         mesh.RecalculateBounds();
+
+        if (src.morphTargets != null)
+        {
+            for (int i = 0; i < src.morphTargets.Length; ++i)
+            {
+                var deletaVertices = new Vector3[mesh.vertexCount];
+                var m = src.morphTargets[i];
+                if (src.indices.stride == 2)
+                {
+                    var indx = lbsm.bufferViews[m.indexBufferView];
+                    var pos = lbsm.bufferViews[m.positionBufferView];
+                    var indxList = MemoryMarshal.Cast<byte, ushort>(bin.Slice(indx.byteOffset, indx.byteLength));
+                    var posList = MemoryMarshal.Cast<byte, Vector3>(bin.Slice(pos.byteOffset, pos.byteLength));
+                    for (int j = 0; j < indxList.Length; ++j)
+                    {
+                        if (lbsm.asset.coordinates.axes.Equals(LbsmAxes.Unity))
+                        {
+                            deletaVertices[indxList[j]] = posList[j];
+                        }
+                        else if (lbsm.asset.coordinates.axes.Equals(LbsmAxes.Gltf))
+                        {
+                            deletaVertices[indxList[j]] = posList[j].ReverseX();
+                        }
+                        else if (lbsm.asset.coordinates.axes.Equals(LbsmAxes.OpenGL))
+                        {
+                            deletaVertices[indxList[j]] = posList[j].ReverseZ();
+                        }
+                        else
+                        {
+                            throw new ArgumentException($"invalid axes: {lbsm.asset.coordinates}");
+                        }
+                    }
+                }
+                else
+                {
+                    throw new NotImplementedException();
+                }
+                mesh.AddBlendShapeFrame(m.name, 100, deletaVertices, null, null);
+            }
+        }
+
         return mesh;
     }
 }
