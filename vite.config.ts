@@ -1,18 +1,7 @@
-import { sveltekit } from '@sveltejs/kit/vite';
-import { defineConfig } from 'vite';
-import { HstSvelte } from '@histoire/plugin-svelte'
+import { defineConfig } from 'vite'
+import { svelte } from '@sveltejs/vite-plugin-svelte'
 
+// https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [
-    sveltekit(),
-  ],
-  histoire: {
-    plugins: [
-      HstSvelte(),
-    ],
-    setupFile: './src/histoire.setup.ts',
-    tree: {
-      file: 'path',
-    },
-  },
-});
+  plugins: [svelte()],
+})
